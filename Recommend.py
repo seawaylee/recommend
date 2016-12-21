@@ -1,7 +1,10 @@
+import gzip
 import os
 import sys
 
 # Configure the environment
+import marshal
+import jieba
 if 'SPARK_HOME' not in os.environ:
     os.environ['SPARK_HOME'] = '/Users/lixiwei-mac/app/spark-1.6.0-bin-hadoop2.6'
 
@@ -26,8 +29,8 @@ sc = SparkContext( 'local', 'pyspark')
 '''
 def trans_comment():
     import re
-    file = open("/Users/lixiwei-mac/Documents/DataSet/doubanReading/rating/userComment.txt")
-    final_file = open("/Users/lixiwei-mac/Documents/DataSet/doubanReading/rating/UserRating.txt","a+")
+    file = open("/Users/lixiwei-mac/Documents/DataSet/recommend/UserComment.txt")
+    final_file = open("/Users/lixiwei-mac/Documents/DataSet/recommend/UserRating_2.txt","a+")
     trans_rating = ""
     count = 0;
     for line in file:
@@ -58,7 +61,7 @@ def trans_comment():
 '''
 def init_model():
 
-    data = sc.textFile("file:////Users/lixiwei-mac/Documents/DataSet/doubanReading/rating/UserRating.txt")
+    data = sc.textFile("file:////Users/lixiwei-mac/Documents/DataSet/recomment/UserRating.txt")
 
     user_no = data.map(lambda x:x.split(',')[0]) #(lxw,4129,tom,helen)
 
@@ -101,7 +104,21 @@ def test_data(ratings,model):
     model.save(sc, "file:///Documents/DataSet/doubanReading/target/tmp/myCollaborativeFilter")
     # sameModel = MatrixFactorizationModel.load(sc, "file:///Documents/DataSet/doubanReading/target/tmp/myCollaborativeFilter")
 
+def get_dict():
+    fname = '/Users/lixiwei-mac/anaconda/lib/python3.5/site-packages/snownlp/sentiment/sentiment.marshal.3';
+    try:
+        f = gzip.open(fname, 'rb')
+        d = marshal.loads(f.read())
+        # print(d)
+    except IOError:
+        f = open(fname, 'rb')
+        d = marshal.loads(f.read())
+    f.close()
+
+
 if __name__ == '__main__':
-    ratings,model = init_model()
-    test_data(ratings,model)
+    # ratings,model = init_model()
+    # test_data(ratings,model)
     # trans_comment(ratings,model)
+    # trans_comment()
+    get_dict()
