@@ -66,21 +66,21 @@ def setOfWords2Vec(vocabList, inputSet):
 # 朴素贝叶斯分类器训练函数
 def trainNB0(trainMatrix, trainCategory):  # trainMatrix:文档矩阵  trainCategory:类别向量
     numTrainDocs = len(trainMatrix)  # 训练文档数
-    numWords = len(trainMatrix[0])  # 单词总数
+    numWords = len(trainMatrix[0])  # 每个文本的词向量长度 都是1000
     pAbusive = sum(trainCategory) / float(numTrainDocs)  # 计算侮辱性文档的概率(class=1) ,trainCategory是人工标记的
-    p0Num = ones(numWords)  # 初始化类别0的数量
-    p1Num = ones(numWords)  # 初始化类别1的数量
-    p0Denom = 2.0
+    p0Num = ones(numWords)  # 初始化类别0的数量 向量
+    p1Num = ones(numWords)  # 初始化类别1的数量 向量
+    p0Denom = 2.0  # 类别0的单词总数
     p1Denom = 2.0
-    for i in range(numTrainDocs):
-        if trainCategory[i] == 1:
-            p1Num += trainMatrix[i]
-            p1Denom += sum(trainMatrix[i])
+    for i in range(numTrainDocs):  # 遍历所有文档
+        if trainCategory[i] == 1:  # 如果训练语料类别为1
+            p1Num += trainMatrix[i]  # 类别1数量向量 + 1
+            p1Denom += sum(trainMatrix[i])  # 出现单词总数+1
         else:
             p0Num += trainMatrix[i]
             p0Denom += sum(trainMatrix[i])
-    p1Vect = log(p1Num / p1Denom)
-    p0Vect = log(p0Num / p0Denom)
+    p1Vect = log(p1Num / p1Denom)  # 计算类别1的条件概率   词频向量 / 词总数 (P(词代表类别1|文档为类别1))
+    p0Vect = log(p0Num / p0Denom)  # 计算类别0的条件概率
     return p0Vect, p1Vect, pAbusive
 
 
@@ -104,10 +104,25 @@ def testingNB():
     for postinDoc in listOfPosts:
         trainMat.append(setOfWords2Vec(myVocabList, postinDoc))
     p0V, p1V, pAb = trainNB0(array(trainMat), array(listClasses))
-    # testEntry = list(jieba.cut("鲁迅只有日本人了解你，我们在钓鱼岛安上鲁迅！！！！！日本人也高兴了"))
-    testEntry = list(jieba.analyse.extract_tags("这书写的真好",topK=10))
-    thisDoc = array(setOfWords2Vec(myVocabList, testEntry))
-    print(testEntry, '被分类为:', classifyNB(thisDoc, p0V, p1V, pAb))
+    testingFile = open("/Users/lixiwei-mac/Documents/DataSet/recommend/NoRatingUserComment.txt")
+    analyseResultFile = open("/Users/lixiwei-mac/Documents/DataSet/recommend/NBSResult.txt","a+")
+    for line in testingFile.readlines():
+        comment = line.split("##*##")[2]
+        userno = line.split("##*##")[0]
+        bookno = line.split("##*##")[1]
+        testEntry = list(jieba.analyse.extract_tags(comment,topK=10))
+        thisDoc = array(setOfWords2Vec(myVocabList, testEntry))
+        classifiedType = classifyNB(thisDoc, p0V, p1V, pAb)
+        rating = -1
+        if classifiedType == 1:
+            rating = 5
+        else:
+            rating = 1
+        print(testEntry, '被分类为:', classifiedType)
+        analyseResultFile.writelines(userno + "," + bookno + "," + str(rating) + "\r")
+
+    testingFile.close()
+    analyseResultFile.close()
 
 # 按照词频排序获取词典
 def handlePNvocab(file_path,final_path):
@@ -132,7 +147,6 @@ def handlePNvocab(file_path,final_path):
 if __name__ == "__main__":
     testingNB()
     # handlePNvocab(file_path,final_path)
-
     # cut_result_path = "/Users/lixiwei-mac/Documents/DataSet/recommend/CutResult.txt"
     # cut_label_path = "/Users/lixiwei-mac/Documents/DataSet/recommend/CutLabel.txt"
     # cut_words(file_path,cut_result_path,cut_label_path)
