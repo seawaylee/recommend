@@ -4,17 +4,17 @@ import sys
 
 # Configure the environment
 import marshal
-import jieba
+
 if 'SPARK_HOME' not in os.environ:
     os.environ['SPARK_HOME'] = '/Users/lixiwei-mac/app/spark-1.6.0-bin-hadoop2.6'
 
 # Create a variable for our root path
 SPARK_HOME = os.environ['SPARK_HOME']
+os.environ["PYSPARK_PYTHON"] = "/Users/lixiwei-mac/anaconda3/envs/py_35/bin/python3.5"
 
 # Add the PySpark/py4j to the Python Path
 sys.path.insert(0, os.path.join(SPARK_HOME, "python", "build"))
 sys.path.insert(0, os.path.join(SPARK_HOME, "python"))
-
 
 '''
 分词并训练评分语义模型
@@ -22,15 +22,19 @@ sys.path.insert(0, os.path.join(SPARK_HOME, "python"))
 from snownlp import SnowNLP
 from pyspark.mllib.recommendation import ALS, MatrixFactorizationModel, Rating
 from pyspark import SparkContext
-sc = SparkContext( 'local', 'pyspark')
+
+sc = SparkContext('local', 'pyspark')
 '''
     Step1:使用情感分析算法，优化训练数据集
     将无评分记录根据positive值转换成评分
 '''
+MODEL_PATH = '/myCollaborativeFilter'
+
+
 def trans_comment():
     import re
     file = open("/Users/lixiwei-mac/Documents/DataSet/recommend/UserComment.txt")
-    final_file = open("/Users/lixiwei-mac/Documents/DataSet/recommend/UserRating_2.txt","a+")
+    final_file = open("/Users/lixiwei-mac/Documents/DataSet/recommend/UserRating_2.txt", "a+")
     trans_rating = ""
     count = 0;
     for line in file:
@@ -53,56 +57,39 @@ def trans_comment():
         count = count + 1
     final_file.close()
     file.close()
-    print("转换完毕，共转换%s条评分"%count)
-'''
-数据预处理
-将String类型的UserNo改成成键值对
-训练模型
-'''
+    print("转换完毕，共转换%s条评分" % count)
+
+
 def init_model():
-
-    data = sc.textFile("file:////Users/lixiwei-mac/Documents/DataSet/recomment/UserRating.txt")
-
-    user_no = data.map(lambda x:x.split(',')[0]) #(lxw,4129,tom,helen)
-
-    user2id = user_no.zipWithUniqueId().collectAsMap()#{lxw:1,4129:2,tom:3,helen:4}
-
-    id2user = {v:k for k, v in user2id.items()}#{1:lxw,2:4129,3:tom,4:helen}
-
-    ratings = data.map(lambda l: l.split(',')).map(lambda l: Rating(int(user2id.get(l[0])), int(l[1]), int(l[2])))
-
+    ratings = get_ratings()
     rank = 10
-
     numIterations = 10
+    model = ALS.train(ratings, rank, numIterations, 0.1)
+    return ratings, model
 
-    model = ALS.train(ratings, rank, numIterations,0.1)
 
-    return ratings,model
-
-'''
-准备测试数据集
-'''
-def test_data(ratings,model):
-
+def make_predict(ratings, model):
     testdata = ratings.map(lambda p: (p[0], p[1])).cache()
-
-    book_file = sc.textFile('file:////Users/lixiwei-mac/Documents/DataSet/doubanReading/rating/BookName.txt')
-
-    book_name_tag = book_file.map(lambda x : x.split(',')).map(lambda x: (x[0], x[1:])).cache().collectAsMap()
-
+    book_file = sc.textFile('file:///Users/lixiwei-mac/Documents/DataSet/doubanReading/rating/BookName.txt')
+    book_name_tag = book_file.map(lambda x: x.split(',')).map(lambda x: (x[0], x[1:])).cache().collectAsMap()
     predictions = model.predictAll(testdata).map(lambda r: ((r[0], r[1]), r[2])).cache()
-
-    print(predictions.collect())
-
+    with open('/Users/lixiwei-mac/Documents/DataSet/doubanReading/rating/predictAll.txt', 'w') as f:
+        f.writelines(str(predictions.collect()))
     ratesAndPreds = ratings.map(lambda r: ((r[0], r[1]), r[2])).join(predictions)
-    print(ratesAndPreds.collect())
-
-    MSE = ratesAndPreds.map(lambda r: (r[1][0] - r[1][1])**2).mean()
+    with open('/Users/lixiwei-mac/Documents/DataSet/doubanReading/rating/ratesAndPreds.txt', 'w') as f:
+        f.writelines(str(ratesAndPreds.collect()))
+    MSE = ratesAndPreds.map(lambda r: (r[1][0] - r[1][1]) ** 2).mean()
     print("Mean Squared Error = " + str(MSE))
 
+
+def save_model(model):
     # Save and load model
-    model.save(sc, "file:///Documents/DataSet/doubanReading/target/tmp/myCollaborativeFilter")
-    # sameModel = MatrixFactorizationModel.load(sc, "file:///Documents/DataSet/doubanReading/target/tmp/myCollaborativeFilter")
+    model.save(sc, MODEL_PATH)
+
+
+def load_saved_model():
+    return MatrixFactorizationModel.load(sc, MODEL_PATH)
+
 
 def get_dict():
     fname = '/Users/lixiwei-mac/anaconda/lib/python3.5/site-packages/snownlp/sentiment/sentiment.marshal.3';
@@ -116,9 +103,31 @@ def get_dict():
     f.close()
 
 
+def get_ratings():
+    rating_data = sc.textFile("file:///Users/lixiwei-mac/Documents/DataSet/recommend/UserRating.txt")
+
+    user_no = rating_data.map(lambda x: x.split(',')[0])  # (lxw,4129,tom,helen)
+
+    user2id = user_no.zipWithUniqueId().collectAsMap()  # {lxw:1,4129:2,tom:3,helen:4}
+
+    id2user = {v: k for k, v in user2id.items()}  # {1:lxw,2:4129,3:tom,4:helen}
+
+    ratings = rating_data.map(lambda l: l.split(',')).map(lambda rating_array: Rating(int(user2id.get(rating_array[0])), int(rating_array[1]), int(rating_array[2])))
+
+    return ratings
+
+
 if __name__ == '__main__':
-    # ratings,model = init_model()
-    # test_data(ratings,model)
+    # ratings = get_ratings()
+    # model = load_saved_model()
+    # test_data(ratings, model)
+    # print('Done')
+
+    # ratings, model = init_model()
+    # save_model(model)
+    ratings = get_ratings()
+    model = load_saved_model()
+    make_predict(ratings, model)
     # trans_comment(ratings,model)
     # trans_comment()
-    get_dict()
+    # get_dict()

@@ -38,19 +38,21 @@ def createVocabList(dataSet):
         vocabSet = vocabSet | set(document)
     return list(vocabSet)
 
+
 # 从文件中获取人工干预后的词典
 def loadVocabList(file_path):
     vocabSet = set()
-    eqVovabFile = open(file_path,"r")
+    eqVovabFile = open(file_path, "r")
     num = 0
     for line in eqVovabFile.readlines():
-        m = re.search("[^(''),]+",line)
+        m = re.search("[^(''),]+", line)
         vocabSet.add(m.group())
         num += 1
         if num >= 1000:
             break
     eqVovabFile.close()
     return vocabSet
+
 
 # 构建文档向量(和词典长度一样)
 def setOfWords2Vec(vocabList, inputSet):
@@ -105,12 +107,12 @@ def testingNB():
         trainMat.append(setOfWords2Vec(myVocabList, postinDoc))
     p0V, p1V, pAb = trainNB0(array(trainMat), array(listClasses))
     testingFile = open("/Users/lixiwei-mac/Documents/DataSet/recommend/NoRatingUserComment.txt")
-    analyseResultFile = open("/Users/lixiwei-mac/Documents/DataSet/recommend/NBSResult.txt","a+")
+    analyseResultFile = open("/Users/lixiwei-mac/Documents/DataSet/recommend/NBSResult.txt", "a+")
     for line in testingFile.readlines():
         comment = line.split("##*##")[2]
         userno = line.split("##*##")[0]
         bookno = line.split("##*##")[1]
-        testEntry = list(jieba.analyse.extract_tags(comment,topK=10))
+        testEntry = list(jieba.analyse.extract_tags(comment, topK=10))
         thisDoc = array(setOfWords2Vec(myVocabList, testEntry))
         classifiedType = classifyNB(thisDoc, p0V, p1V, pAb)
         rating = -1
@@ -124,8 +126,9 @@ def testingNB():
     testingFile.close()
     analyseResultFile.close()
 
+
 # 按照词频排序获取词典
-def handlePNvocab(file_path,final_path):
+def handlePNvocab(file_path, final_path):
     myDict = {}
     file = open(file_path)
     for line in file.readlines():
@@ -139,12 +142,17 @@ def handlePNvocab(file_path,final_path):
     myDict = sorted(myDict.items(), key=lambda x: x[1], reverse=True)
     print(myDict)
     file.close()
-    dest_file = open(final_path,"a+")
+    dest_file = open(final_path, "a+")
     for line in myDict:
         dest_file.writelines(str(line) + "\r\n")
     dest_file.close()
 
+
 if __name__ == "__main__":
+    # print (jieba.analyse.extract_tags('我是你爸爸', topK=10))
+
+
+
     testingNB()
     # handlePNvocab(file_path,final_path)
     # cut_result_path = "/Users/lixiwei-mac/Documents/DataSet/recommend/CutResult.txt"
